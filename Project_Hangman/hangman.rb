@@ -1,111 +1,113 @@
-dictionary = File.readlines("dictionary.txt").map { |word| word.chomp }
+class Dictionary
+	attr_reader :word_pool
+	def initialize
+		@word_pool = File.readlines("dictionary.txt").map { |word| word.chomp }
+	end
+end
+
+class Player
+	attr_accessor :guess, :guesses, :strikes
+	def initialize
+		@guess = ""
+		@guesses = []
+		@strikes = 6
+	end
+	
+	def get_guess
+		valid_guess = false
+		until valid_guess
+			new_guess = gets.chomp.downcase
+			if (new_guess.length == 1) && (("a".."z").include? new_guess) && !(guesses.include? new_guess)
+				valid_guess = true 
+			else
+				print "Invalid guess.  Please try again:"
+			end
+		end
+		self.guess = new_guess
+		guesses << guess
+	end
+end
 
 class Hangman
-	attr_reader :word_pool, :picked_word, :posted_word, :player
+	attr_reader :dictionary, :player, :screen, :picked_word
 	
-	def initialize(word_pool)
-		@word_pool = word_pool
-		@picked_word = pick_word_in_range((5..12)).split("")
-		@posted_word = Array.new(picked_word.length, "_")
-		@player = Player.new
+	def initialize(dictionary, player, screen)
+		@dictionary = dictionary
+		@player = player
+		@screen = screen
+		@picked_word = pick_word_in_range((5..9)).split("")
 	end
 	
 	def pick_word_in_range(num_of_letters)
-		new_word_pool = word_pool.map do |word|
+		new_word_pool = dictionary.word_pool.map do |word|
 											word if num_of_letters.include? word.length
 										end.compact
 		new_word_pool[rand(new_word_pool.length)]
 	end
-	
-	def check_for_strike(letter)
-		player.strikes += 1 unless picked_word.include? letter
+	def get_guess
+		screen.ask_for_letter
+		player.get_guess
 	end
-	
-	def post_word
-		picked_word.each do |letter|
-			if player.guesses.include? letter.downcase
+	def winner?
+		picked_word.all? { |letter| player.guesses.include? letter }
+	end
+	def loser?
+		player.strikes == 0
+	end
+	def game_over?
+		winner? || loser?
+	end
+	def analyze_guess
+		unless (picked_word.include? player.guess.upcase) || (picked_word.include? player.guess.downcase)
+			player.strikes -= 1 
+		end
+	end
+	def play
+		screen.post_word(picked_word, player.guesses)
+		until game_over?
+			get_guess
+			analyze_guess
+			screen.post_all(picked_word, player.strikes, player.guesses)
+		end
+		screen.post_winner(picked_word) if winner?
+		screen.post_loser(picked_word) if loser?
+	end
+end
+
+class Screen
+	def ask_for_letter
+		print "\nPlease select a letter:"
+	end
+	def post_word(word, guesses)
+		word.each do |letter|
+			if guesses.include? letter.downcase
 				print letter + " "
 			else
 				print "_ "
 			end
 		end
 	end
-	
-	def post_strikes
-		print "#{player.strikes} of 5 strikes "
+	def post_strikes(strikes)
+		print "Chances left: #{strikes}"
 	end
-	
-	def post_guesses
-		print "Guessed: "
-		player.guesses.sort.each { |letter| print letter + " " }
+	def post_guesses(guesses)
+		print "Letters Guessed: "
+		guesses.sort.each { |letter| print letter + " " }
 	end
-	
-	def post_header
-		post_word
+	def post_all(word, strikes, guesses)
+		post_word(word, guesses)
 		print "- "
-		post_strikes
-		print "- "
-		post_guesses
-		print "\n"
+		post_strikes(strikes)
+		print " - "
+		post_guesses(guesses)
 	end
-	
-	def play
-		puts "Welcome to Hangman."
-		post_word
-		print "\n"
-		until winner? || loser?
-			letter = player.get_letter
-			check_for_strike(letter)
-			post_header
-		end
-		if winner?
-			puts "You win! You guessed #{picked_word.join("")}."
-		else
-			puts "You lose! The word was #{picked_word.join("")}."
-		end
+	def post_winner(word)
+		print "\nCongratulations! You guessed #{word.join("")}.\n"
 	end
-
-	def winner?
-		picked_word.all? { |letter| player.guesses.include? letter }
-	end
-
-	def loser?
-		player.strikes == 5 ? true : false
+	def post_loser(word)
+		print "\nI'm sorry. You couldn't guess #{word.join("")}.\n"
 	end
 end
 
-class Player
-	attr_reader :guesses
-	attr_accessor :strikes
-	
-	def initialize
-		@guesses = []
-		@strikes = 0
-	end
-	
-	def get_letter
-		print "Please enter a letter:"
-		letter = gets.chomp.downcase
-		until (is_letter?(letter)) && (unguessed?(letter))
-			print "Not a valid option, please try again:"
-			letter = gets.chomp.downcase
-		end
-		add_to_guesses(letter)
-		return letter
-	end
-	def add_to_guesses(letter)
-		guesses << letter
-	end
-	def is_letter?(letter)
-		(letter.length == 1) && (("a".."z").include? letter)
-	end
-	def unguessed?(letter)
-		!(guesses.include? letter)
-	end
-	
-
-end
-
-
-hangman = Hangman.new(dictionary)
+hangman = Hangman.new(Dictionary.new, Player.new, Screen.new)
 hangman.play
