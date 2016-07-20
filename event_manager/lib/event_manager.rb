@@ -1,22 +1,28 @@
 require "csv"
 
 def clean_zipcode(zipcode)
-	if zipcode.nil?
-		zipcode = "00000"
-	elsif zipcode.length > 5
-		zipcode = zipcode[0..4]
-	elsif zipcode.length < 5
-		zipcode = zipcode.rjust 5, "0"
-	else
-		zipcode
-	end
+  zipcode.to_s.rjust(5, "0")[0..4]
 end
 
 puts "EventManager Initialized!"
 
 contents = CSV.open "event_attendees.csv", headers: true, header_converters: :symbol
-contents.each do |row|
+contents.each_with_index do |row, num|
+  if num == 3
 	name = row[:first_name]
 	zipcode = clean_zipcode(row[:zipcode])
 	puts "#{name} #{zipcode}"
+  end
+end
+
+x = 1
+
+if 
+  begin
+    Float(x)
+    x = Float(x)
+    catch ArgumentError
+  end
+else
+  puts "hello"
 end
